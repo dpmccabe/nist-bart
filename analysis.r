@@ -1,7 +1,7 @@
 gc()
 options(java.parameters = "-Xmx10g")
 
-sapply(unlist(strsplit("gdata dplyr plyr randomForest caret ROCR ResourceSelection bartMachine gtools caret doParallel", " ")), function(pkg) {
+sapply(unlist(strsplit("dplyr plyr randomForest caret ROCR bartMachine doParallel", " ")), function(pkg) {
   if (!is.element(pkg, installed.packages()[,1])) install.packages(pkg, dep = T)
   library(pkg, character.only = T, quietly = T)
 })
@@ -218,7 +218,7 @@ save(bt_fin, file = "bt_fin.rdata")
 fin_preds = bt_caret_out_fin$pred
 fin_preds = filter(fin_preds, Resample == "AllData")
 cm = confusionMatrix(fin_preds$pred, fin_preds$obs, positive = "vaxxed")
-round(cm$table / 100, 1)
+round(cm$table / sum(cm$table) * 100, 1)
 
 bt_predictions = prediction(fin_preds$vaxxed, fin_preds$obs, label.ordering = c("vaxxed", "unvaxxed"))
 bt_perf = performance(bt_predictions, "tpr", "fpr")
