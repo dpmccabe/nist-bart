@@ -18,13 +18,15 @@ load("~/Dropbox/2016-1 (Spring)/Bayesian (2530)/project2/nistcc.rdata")
 load("~/Dropbox/2016-1 (Spring)/Bayesian (2530)/project2/bt_caret_out.rdata")
 load("~/Dropbox/2016-1 (Spring)/Bayesian (2530)/project2/bt_fin.rdata")
 
-####################################################################### utilities
+######################################################################
+# utilities
 ######################################################################
 explode = function(s) {
   return(unlist(strsplit(s, " ")))
 }
 
-####################################################################### data cleanup
+######################################################################
+# data cleanup
 ######################################################################
 nist[nist[, "CKUP_AGE"] %in% c(77, 99), "CKUP_AGE"] = NA
 
@@ -40,7 +42,8 @@ nist = droplevels(nist)
 str(nist[, fac_cols])
 summary(nist[, fac_cols])
 
-####################################################################### insurance indicator variables
+######################################################################
+# insurance indicator variables
 ######################################################################
 ins_cols = explode("TIS_INS_1 TIS_INS_2 TIS_INS_3 TIS_INS_3A TIS_INS_4_5 TIS_INS_6 TIS_INS_11")
 n_ins_present = rowSums(nist[, ins_cols] == "YES" | nist[, ins_cols] == "NO", na.rm  = T)
@@ -52,7 +55,8 @@ summary(nist[, ins_cols])
 nist[, ins_cols][is.na(nist[, ins_cols])] <- as.factor("NO")
 summary(nist[, ins_cols])
 
-####################################################################### vax indicator variables
+######################################################################
+# vax indicator variables
 ######################################################################
 vax_cols = explode("P_U13HPV P_UTDHPV P_UTDHPV2 P_U13HPV3 P_UTDHPV11 P_UTDHPV12 P_UTDHPV13 P_UTDHPV3C")
 
@@ -74,7 +78,8 @@ P_UTDHPV3C_utd = which(nist$P_UTDHPV3C == "UTD")
 P_UTDHPV3C_not_utd = which(nist$P_UTDHPV3C == "NOT UTD" & nist$P_UTDHPV == "UTD")
 sum(nist[P_UTDHPV3C_utd, "RDDWT_D_TERR"]) / sum(c(nist[P_UTDHPV3C_utd, "RDDWT_D_TERR"], nist[P_UTDHPV3C_not_utd, "RDDWT_D_TERR"]))
 
-####################################################################### complete cases
+######################################################################
+# complete cases
 ######################################################################
 cols_oi = explode("SEQNUMT RDDWT_D_TERR vax AGE SEX CKUP_11_12 CKUP_AGE RISK_EVER RISK_NOW RISK_HH C1R CHILDNM INCPORAR ASTHMA CPOX_HAD HPVI_INTENTR IMM_ANY MEN_ANY_REC NOSCHOOLR TET_ANY_REC VISITS AGEGRP_M_I CEN_REG EDUC1 INCPOV1 I_HISP_K LANGUAGE MARITAL2 MOBIL_I RACE_K RENT_OWN FACILITY VFC_ORDER TIS_INS_1 TIS_INS_2 TIS_INS_3 TIS_INS_4_5 TIS_INS_6 TIS_INS_11")
 
@@ -89,7 +94,8 @@ summary(nistcc)
 
 rbind(c(table(nistcc$vax)), round(c(table(nistcc$vax)) / nrow(nistcc) * 100, 1))
 
-####################################################################### recode
+######################################################################
+# recode
 ######################################################################
 new_col_names = explode("id sw vax age sex checkup_11_12 checkup_age risk_ever risk_now risk_household people_in_household children_in_household inc_pov_rat asthma had_cpox HPVI_INTENTR any_imm MEN_ANY_REC school_missed TET_ANY_REC doc_visits mother_age_group region mother_edu poverty_status hispanic_latino language mother_married moved race rent_own facility vax_order ins_emp_union ins_medicaid ins_schip ins_other_gov ins_other ins_lacked")
 cbind(colnames(nistcc), new_col_names)
@@ -147,13 +153,15 @@ nistcc = subset(nistcc, select = -c(TET_ANY_REC, HPVI_INTENTR, MEN_ANY_REC, risk
 str(nistcc)
 summary(nistcc)
 
-####################################################################### formula
+######################################################################
+# formula
 ######################################################################
 form = vax ~ age + sex + checkup_11_12 + checkup_age + risk + risk_household + people_in_household + children_in_household + inc_pov_rat + asthma + had_cpox + any_imm + school_missed + doc_visits + mother_age_group + region + mother_edu + poverty_status + hispanic_latino + language + mother_married + moved + race + rent_own + facility + vax_order + ins_emp_union + ins_medicaid + ins_schip + ins_other_gov + ins_other + ins_lacked
 
 preds = strsplit(as.character(form)[3], " \\+ ", perl = T)[[1]]
 
-####################################################################### glm
+######################################################################
+# glm
 ######################################################################
 null_mod = glm(vax ~ 1, data = nistcc[complete.cases(nistcc),], family = "binomial")
 lm_stepped = step(null_mod, form, k = 2, direction = "forward")
@@ -177,7 +185,8 @@ glm_preds = as.factor(ifelse(glm_pred_probs < 0.5, "unvaxxed", "vaxxed"))
 
 confusionMatrix(glm_preds, nistcc$vax, positive = "vaxxed")
 
-####################################################################### random forest
+######################################################################
+# random forest
 ######################################################################
 tune_rf = tuneRF(x = nistcc[, preds], y = nistcc$vax, ntreeTry = 101, stepFactor = 3, improve = 0.02, do.trace = T)
 rf = randomForest(form, data = nistcc, ntree = 51, mtry = 2, importance = T, do.trace = T)
@@ -186,7 +195,8 @@ head(getTree(rf, 1, T), 20)
 
 varImpPlot(rf)
 
-####################################################################### bayes tree
+######################################################################
+# bayes tree
 ######################################################################
 set_bart_machine_num_cores(8)
 bm = bartMachine(X = nistcc[, preds], y = nistcc$vax, num_trees = 51, use_missing_data = T, use_missing_data_dummies_as_covars = T, mem_cache_for_speed = F, verbose = T)
@@ -198,7 +208,8 @@ cbind(bm_imp_avg[order(-bm_imp_avg),1])
 
 pd_plot(bm, which(bm$training_data_features == "inc_pov_rat"), prop_data = 0.1)
 
-####################################################################### bayes tree tuning
+######################################################################
+# bayes tree tuning
 ######################################################################
 summary(nistcc[, nearZeroVar(nistcc[, preds])])
 
@@ -210,7 +221,8 @@ bt_caret_out_fin = train(trControl = bt_traincon_fin, method = "bartMachine", x 
 
 save(bt_caret_out_fin, file = "bt_caret_out_fin.rdata")
 
-####################################################################### bayes tree model analysis
+######################################################################
+# bayes tree model analysis
 ######################################################################
 bt_fin = bt_caret_out_fin$finalModel
 save(bt_fin, file = "bt_fin.rdata")
@@ -284,7 +296,8 @@ nistcc$vaxxed_prob = fin_preds$unvaxxed
 
 ggplot(nistcc[, c("checkup_age", "age", "vaxxed_prob")], aes(checkup_age, age)) + geom_raster(aes(fill = vaxxed_prob)) + xlim(c(13, 17)) + theme(title = element_text(size = rel(2)), axis.text = element_text(size = rel(1.5)), legend.text = element_text(size = rel(1.5))) + guides(fill = guide_legend(title = "Predicted compliance"))
 
-####################################################################### comparison
+######################################################################
+# comparison
 ######################################################################
 bt_caret_out_cc = train(trControl = bt_traincon_fin, method = "bartMachine", x = nistcc[complete.cases(nistcc), preds], y = nistcc[complete.cases(nistcc), "vax"], tuneGrid = expand.grid(num_trees = 101, k = 2, alpha = 0.85, beta = 1, nu = 3), use_missing_data = T, use_missing_data_dummies_as_covars = T, mem_cache_for_speed = F, verbose = T)
 
